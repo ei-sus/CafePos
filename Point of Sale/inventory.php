@@ -17,29 +17,43 @@ function convertToKgOrL($quantity, $unit) {
     }
 }
 
-// Add new ingredient for drinks
-if (isset($_POST['save']) && isset($_POST['item_d'])) {
-    $item = $_POST['item_d'];
-    $quantity = $_POST['quantity_d'];
-    $unit = $_POST['unit_d'];
-    $price = $_POST['price_d'];
 
-    // Convert quantity to kg or L based on unit
-    if (in_array($unit, ['kg', 'g'])) {
-        $quantity = convertToKgOrL($quantity, $unit);
-        $unit = 'kg'; // Set unit to kg for storage
-    } elseif (in_array($unit, ['L', 'mL'])) {
-        $quantity = convertToKgOrL($quantity, $unit);
-        $unit = 'L'; // Set unit to L for storage
-    }
+// Add new ingredient for drinks and pastries
+if (isset($_POST['save'])) {
+  if (isset($_POST['item_d'])) {
+      $item = $_POST['item_d'];
+      $quantity = $_POST['quantity_d'];
+      $unit = $_POST['unit_d'];
+      $price = $_POST['price_d'];
 
-    $stmt = $conn->prepare("INSERT INTO drinks_ingredients (item_d, quantity_d, unit_d, price_d) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $item, number_format($quantity, 2, '.', ''), $unit, $price); // Format the quantity
-    $stmt->execute();
-    $stmt->close();
+      // Convert quantity to kg or L based on unit
+      if (in_array($unit, ['kg', 'g'])) {
+          $quantity = convertToKgOrL($quantity, $unit);
+          $unit = 'kg'; // Set unit to kg for storage
+      } elseif (in_array($unit, ['L', 'mL'])) {
+          $quantity = convertToKgOrL($quantity, $unit);
+          $unit = 'L'; // Set unit to L for storage
+      }
 
-    header("Location: inventory.php");
-    exit();
+      $stmt = $conn->prepare("INSERT INTO drinks_ingredients (item_d, quantity_d, unit_d, price_d) VALUES (?, ?, ?, ?)");
+      $stmt->bind_param("ssss", $item, number_format($quantity, 2, '.', ''), $unit, $price);
+      $stmt->execute();
+      $stmt->close();
+  }
+
+  if (isset($_POST['item_p'])) {
+      $item_p = $_POST['item_p'];
+      $quantity_p = $_POST['quantity_p'];
+      $price_p = $_POST['price_p'];
+
+      $stmt = $conn->prepare("INSERT INTO pastries_ingredients (item_p, quantity_p, price_p) VALUES (?, ?, ?)");
+      $stmt->bind_param("sss", $item_p, $quantity_p, $price_p);
+      $stmt->execute();
+      $stmt->close();
+  }
+
+  header("Location: inventory.php");
+  exit();
 }
 
 // Update ingredient
@@ -191,9 +205,9 @@ $pastries_result = $conn->query($pastries_sql);
 </div>
 
 <div class="main">
-    <h2>Inventory Management</h2>
+    <h2>Drinks Ingredients</h2>
     <button type="button" class="button button1" data-bs-toggle="modal" data-bs-target="#myModal">
-        Add New Ingredient for Drinks
+        Add New Stock/Ingredient
     </button>
 
     <!-- Add ingredient for drinks -->
@@ -201,14 +215,14 @@ $pastries_result = $conn->query($pastries_sql);
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">Add New Ingredient</h4>
+                    <h4 class="modal-title">Add New Stock/Ingredient</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form method="post">
-                        <label for="item_d" class="form-label">Item</label>
-                        <input type="text" class="form-control" id="item_d" name="item_d" required>
-
+                    <label for="item_d" class="form-label">Item</label>
+                    <input type="text" class="form-select"  id="item_d" name="item_d"  required>
+                    
                         <label for="quantity_d" class="form-label">Quantity</label>
                         <input type="text" class="form-control" id="quantity_d" name="quantity_d" required>
 
@@ -266,31 +280,27 @@ $pastries_result = $conn->query($pastries_sql);
                       </div>
                       <div class="modal-body">
                           <form method="post">
-                              <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
-                              <input type="hidden" name="type" value="drinks">
-
-                              <label for="item" class="form-label">Item</label>
-                              <input type="text" class="form-control" id="item" name="item" value="<?php echo $row['item_d']; ?>" required>
-
-                              <label for="quantity" class="form-label">Quantity</label>
-                              <input type="text" class="form-control" id="quantity" name="quantity" value="<?php echo $row['quantity_d']; ?>" required>
-
-                              <label for="unit" class="form-label">Unit of Measurement</label>
-                              <select class="form-select" id="unit" name="unit" required>
-                                  <option selected value="<?php echo $row['unit_d']; ?>"><?php echo $row['unit_d']; ?></option>
-                                  <option value="kg">kg</option>
-                                  <option value="g">g</option>
-                                  <option value="L">L</option>
-                                  <option value="mL">mL</option>
-                              </select>
-
-                              <label for="price" class="form-label">Price</label>
-                              <input type="text" class="form-control" id="price" name="price" value="<?php echo $row['price_d']; ?>" required>
-
-                              <div class="modal-footer">
-                                  <button type="submit" name="update" class="btn btn-success">Update</button>
-                                  <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
-                              </div>
+                            <input type="hidden" name="type" value="drinks">
+                            <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
+                            <label for="item_d" class="form-label">Item</label>
+                            <input type="text" class="form-control" name="item" value="<?php echo $row['item_d']; ?>" required>
+                            <label for="quantity_d" class="form-label">Quantity</label>
+                            <input type="text" class="form-control" name="quantity" value="<?php echo $row['quantity_d']; ?>" required>
+                            <label for="unit_d" class="form-label">Unit of Measurement</label>
+                            <select class="form-select" name="unit" required>
+                              <option value="kg" <?php if ($row['unit_d'] == 'kg') echo 'selected'; ?>>kg</option>
+                              <option value="g" <?php if ($row['unit_d'] == 'g') echo 'selected'; ?>>g</option>
+                              <option value="L" <?php if ($row['unit_d'] == 'L') echo 'selected'; ?>>L</option>
+                              <option value="mL" <?php if ($row['unit_d'] == 'mL') echo 'selected'; ?>>mL</option>
+                              <select class="form-select" id="unit_d" name="unit_d" required>
+                        </select>
+                            </select>
+                            <label for="price_d" class="form-label">Price</label>
+                            <input type="text" class="form-control" name="price" value="<?php echo $row['price_d']; ?>" required>
+                            <div class="modal-footer">
+                              <button type="submit" name="update" class="btn btn-primary">Update</button>
+                              <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                            </div>
                           </form>
                       </div>
                   </div>
@@ -307,7 +317,7 @@ $pastries_result = $conn->query($pastries_sql);
     <!-- Pastries -->
     <h2>Pastries Ingredients</h2>
     <button type="button" class="button button1" data-bs-toggle="modal" data-bs-target="#pastryModal">
-        Add New Ingredient for Pastries
+        Add New Stock/Ingredient
     </button>
 
     <!-- PAdd ingredient for pastry -->
@@ -315,13 +325,18 @@ $pastries_result = $conn->query($pastries_sql);
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">Add New Ingredient</h4>
+                    <h4 class="modal-title">Add New Stock/Ingredient</h4>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form method="post">
                         <label for="item_p" class="form-label">Item</label>
-                        <input type="text" class="form-control" id="item_p" name="item_p" required>
+                        <input class="form-select" list="options" id="item_p" name="item_p" placeholder="Type or select an option" required>
+                        <datalist id="options">
+                            <?php foreach ($existing_items as $existing_item) { ?>
+                                <option value="<?php echo htmlspecialchars($existing_item); ?>"><?php echo htmlspecialchars($existing_item); ?></option>
+                              <?php } ?>
+                        </datalist>
 
                         <label for="quantity_p" class="form-label">Quantity</label>
                         <input type="text" class="form-control" id="quantity_p" name="quantity_p" required>
