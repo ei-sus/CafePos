@@ -20,6 +20,7 @@ function convertToKgOrL($quantity, $unit) {
 
 // Add new ingredient for drinks and pastries
 if (isset($_POST['save'])) {
+  // Check for drinks ingredient
   if (isset($_POST['item_d'])) {
       $item = $_POST['item_d'];
       $quantity = $_POST['quantity_d'];
@@ -29,32 +30,69 @@ if (isset($_POST['save'])) {
       // Convert quantity to kg or L based on unit
       if (in_array($unit, ['kg', 'g'])) {
           $quantity = convertToKgOrL($quantity, $unit);
-          $unit = 'kg'; // Set unit to kg for storage
+          $unit = 'kg'; 
       } elseif (in_array($unit, ['L', 'mL'])) {
           $quantity = convertToKgOrL($quantity, $unit);
-          $unit = 'L'; // Set unit to L for storage
+          $unit = 'L'; 
       }
 
-      $stmt = $conn->prepare("INSERT INTO drinks_ingredients (item_d, quantity_d, unit_d, price_d) VALUES (?, ?, ?, ?)");
-      $stmt->bind_param("ssss", $item, number_format($quantity, 2, '.', ''), $unit, $price);
+      // Check if item already exists
+      $stmt = $conn->prepare("SELECT quantity_d FROM drinks_ingredients WHERE item_d = ?");
+      $stmt->bind_param("s", $item);
+      $stmt->execute();
+      $stmt->bind_result($existingQuantity);
+      $stmt->fetch();
+      $stmt->close();
+
+      if ($existingQuantity !== null) {
+          // Item exists, update the quantity
+          $newQuantity = $existingQuantity + $quantity;
+
+          $stmt = $conn->prepare("UPDATE drinks_ingredients SET quantity_d = ?, price_d = ? WHERE item_d = ?");
+          $stmt->bind_param("sss", number_format($newQuantity, 2, '.', ''), $price, $item);
+      } else {
+          // Item does not exist, insert a new one
+          $stmt = $conn->prepare("INSERT INTO drinks_ingredients (item_d, quantity_d, unit_d, price_d) VALUES (?, ?, ?, ?)");
+          $stmt->bind_param("ssss", $item, number_format($quantity, 2, '.', ''), $unit, $price);
+      }
       $stmt->execute();
       $stmt->close();
   }
 
+  // Check for pastries ingredient
   if (isset($_POST['item_p'])) {
       $item_p = $_POST['item_p'];
       $quantity_p = $_POST['quantity_p'];
       $price_p = $_POST['price_p'];
 
-      $stmt = $conn->prepare("INSERT INTO pastries_ingredients (item_p, quantity_p, price_p) VALUES (?, ?, ?)");
-      $stmt->bind_param("sss", $item_p, $quantity_p, $price_p);
+      // Check if item already exists
+      $stmt = $conn->prepare("SELECT quantity_p FROM pastries_ingredients WHERE item_p = ?");
+      $stmt->bind_param("s", $item_p);
+      $stmt->execute();
+      $stmt->bind_result($existingQuantityP);
+      $stmt->fetch();
+      $stmt->close();
+
+      if ($existingQuantityP !== null) {
+          // Item exists, update the quantity
+          $newQuantityP = $existingQuantityP + $quantity_p;
+
+          $stmt = $conn->prepare("UPDATE pastries_ingredients SET quantity_p = ?, price_p = ? WHERE item_p = ?");
+          $stmt->bind_param("sss", $newQuantityP, $price_p, $item_p);
+      } else {
+          // Item does not exist, insert a new one
+          $stmt = $conn->prepare("INSERT INTO pastries_ingredients (item_p, quantity_p, price_p) VALUES (?, ?, ?)");
+          $stmt->bind_param("sss", $item_p, $quantity_p, $price_p);
+      }
       $stmt->execute();
       $stmt->close();
   }
 
+  // Redirect to inventory
   header("Location: inventory.php");
   exit();
 }
+
 
 // Update ingredient
 if (isset($_POST['update'])) {
