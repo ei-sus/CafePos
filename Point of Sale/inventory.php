@@ -1,7 +1,7 @@
 <?php
 include "conn.php";
 
-// onvert quantities to kg or L
+// Function to convert quantities to kg or L
 function convertToKgOrL($quantity, $unit) {
     $conversion = [
         'kg' => 1,
@@ -12,8 +12,8 @@ function convertToKgOrL($quantity, $unit) {
     return isset($conversion[$unit]) ? (float)$quantity * $conversion[$unit] : (float)$quantity;
 }
 
-// save or update ingredient
-function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, $itemColumn, $quantityColumn, $priceColumn, $unitColumn) {
+// Function to save or update ingredient
+function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, $itemColumn, $quantityColumn, $priceColumn, $unitColumn, $pricePerColumn) {
     $stmt = $conn->prepare("SELECT $quantityColumn, $priceColumn FROM $table WHERE $itemColumn = ?");
     $stmt->bind_param("s", $item);
     $stmt->execute();
@@ -21,25 +21,27 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
     $stmt->fetch();
     $stmt->close();
 
-    // convert quantity to kg or L
+    // Convert quantity to kg or L
     $quantity = convertToKgOrL($quantity, $unit);
     $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
 
-    if ($existingQuantity !== null) {
-        // if ittem exists, update the quantity and price
-        $newQuantity = $existingQuantity + $quantity;
-        $newPrice = $existingPrice + $price;
+    $newQuantity = ($existingQuantity !== null) ? $existingQuantity + $quantity : $quantity;
+    $newPrice = ($existingPrice !== null) ? $existingPrice + $price : $price;
+    
+    $pricePerUnit = $newPrice / $newQuantity;
 
-        $stmt = $conn->prepare("UPDATE $table SET $quantityColumn = ?, $priceColumn = ? WHERE $itemColumn = ?");
-        $stmt->bind_param("dds", $newQuantity, $newPrice, $item);
+    if ($existingQuantity !== null) {
+        // Item exists, update the quantity and price
+        $stmt = $conn->prepare("UPDATE $table SET $quantityColumn = ?, $priceColumn = ?, $pricePerColumn = ? WHERE $itemColumn = ?");
+        $stmt->bind_param("ddds", $newQuantity, $newPrice, $pricePerUnit, $item);
     } else {
-        // ttem does not exist, insert a new one
+        // Item does not exist, insert a new one
         if ($unitColumn) {
-            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $unitColumn, $priceColumn) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("sssd", $item, number_format($quantity, 2, '.', ''), $unit, $price);
+            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $unitColumn, $priceColumn, $pricePerColumn) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssd", $item, number_format($quantity, 2, '.', ''), $unit, $price, $pricePerUnit);
         } else {
-            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $priceColumn) VALUES (?, ?, ?)");
-            $stmt->bind_param("ssd", $item, number_format($quantity, 2, '.', ''), $price);
+            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $priceColumn, $pricePerColumn) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("sssd", $item, number_format($quantity, 2, '.', ''), $price, $pricePerUnit);
         }
     }
 
@@ -47,40 +49,42 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
     $stmt->close();
 }
 
-// save ingredient
+// Handle saving ingredients
 if (isset($_POST['save_drinks'])) {
-    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], $_POST['unit'], $_POST['total_price'], 'drinks_ingredients', 'item', 'quantity', 'total_price', 'unit');
+    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], $_POST['unit'], $_POST['total_price'], 'drinks_ingredients', 'item', 'quantity', 'total_price', 'unit', 'price_per_unit');
     header("Location: inventory.php");
     exit();
 }
 
 if (isset($_POST['save_pastries'])) {
-    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], null, $_POST['total_price'], 'pastries_ingredients', 'item', 'quantity', 'total_price', null);
+    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], null, $_POST['total_price'], 'pastries_ingredients', 'item', 'quantity', 'total_price', null, 'price_per_item');
     header("Location: inventory.php");
     exit();
 }
 
-// update ingredient
+// Update ingredient
 if (isset($_POST['update'])) {
     $id = $_POST['id'];
     $item = $_POST['item'];
     $quantity = $_POST['quantity'];
     $total_price = $_POST['total_price'];
-    $unit = isset($_POST['unit']) ? $_POST['unit'] : null; 
+    $unit = isset($_POST['unit']) ? $_POST['unit'] : null; // Only for drinks
     $type = $_POST['type'];
 
-    // convert quantity to kg or L if applicable
+    // Convert quantity to kg or L if applicable
     if ($unit) {
         $quantity = convertToKgOrL($quantity, $unit);
         $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
     }
 
     if ($type === 'drinks') {
-        $stmt = $conn->prepare("UPDATE drinks_ingredients SET item = ?, quantity= ?, unit = ?, total_price = ? WHERE id = ?");
-        $stmt->bind_param("ssssi", $item, number_format($quantity, 2, '.', ''), $unit, $total_price, $id);
+        $pricePerUnit = $total_price / $quantity; // Calculate price per unit
+        $stmt = $conn->prepare("UPDATE drinks_ingredients SET item = ?, quantity = ?, unit = ?, total_price = ?, price_per_unit = ? WHERE id = ?");
+        $stmt->bind_param("ssssdi", $item, number_format($quantity, 2, '.', ''), $unit, $total_price, $pricePerUnit, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE pastries_ingredients SET item = ?, quantity = ?, total_price = ? WHERE id = ?");
-        $stmt->bind_param("sssi", $item, number_format($quantity, 2, '.', ''), $total_price, $id);
+        $pricePerItem = $total_price / $quantity; // Calculate price per item for pastries
+        $stmt = $conn->prepare("UPDATE pastries_ingredients SET item = ?, quantity = ?, total_price = ?, price_per_item = ? WHERE id = ?");
+        $stmt->bind_param("ssdsi", $item, number_format($quantity, 2, '.', ''), $total_price, $pricePerItem, $id);
     }
 
     $stmt->execute();
@@ -90,7 +94,7 @@ if (isset($_POST['update'])) {
     exit();
 }
 
-// delete ingredient
+// Delete ingredient
 if (isset($_GET['id']) && isset($_GET['type'])) {
     $id = $_GET['id'];
     $type = $_GET['type'];
@@ -105,7 +109,7 @@ if (isset($_GET['id']) && isset($_GET['type'])) {
     exit();
 }
 
-// fetch ingredients
+// Fetch ingredients
 $drinks_result = $conn->query("SELECT * FROM drinks_ingredients");
 $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
 ?>
@@ -283,6 +287,7 @@ $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
                 <th scope="col">Item</th>
                 <th scope="col">Quantity</th>
                 <th scope="col">Total Price</th>
+                <th scope="col">Price Per Quantity</th>
                 <th scope="col">Action</th>
             </tr>
         </thead>
@@ -294,6 +299,7 @@ $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
                     <td><?php echo $row['item']; ?></td>
                     <td><?php echo $row['quantity']; ?></td>
                     <td><?php echo $row['total_price']; ?></td>
+                    <td><?php echo $row['price_per_item']; ?></td>
                     <td>
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editPastryModal_<?php echo $row['id']; ?>">Edit</button>
 
