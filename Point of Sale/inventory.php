@@ -13,7 +13,7 @@ function convertToKgOrL($quantity, $unit) {
 }
 
 // Function to save or update ingredient
-function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, $itemColumn, $quantityColumn, $priceColumn, $unitColumn, $pricePerColumn, $pricePerGMLColumn) {
+function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, $itemColumn, $quantityColumn, $priceColumn, $pricePerColumn) {
     $stmt = $conn->prepare("SELECT $quantityColumn, $priceColumn FROM $table WHERE $itemColumn = ?");
     $stmt->bind_param("s", $item);
     $stmt->execute();
@@ -21,29 +21,26 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
     $stmt->fetch();
     $stmt->close();
 
-    // Convert quantity to kg or L
-    $quantity = convertToKgOrL($quantity, $unit);
-    $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
+    // Convert quantity to kg or L for drinks only
+    if ($unit) {
+        $quantity = convertToKgOrL($quantity, $unit);
+        $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
+    }
 
+    // Calculate new quantity and price
     $newQuantity = ($existingQuantity !== null) ? $existingQuantity + $quantity : $quantity;
     $newPrice = ($existingPrice !== null) ? $existingPrice + $price : $price;
-    
-    $pricePerUnit = $newPrice / $newQuantity;
-    $pricePerGML = $pricePerUnit / 1000; // Calculate price per gram/mL
 
     if ($existingQuantity !== null) {
         // Item exists, update the quantity and price
-        $stmt = $conn->prepare("UPDATE $table SET $quantityColumn = ?, $priceColumn = ?, $pricePerColumn = ?, $pricePerGMLColumn = ? WHERE $itemColumn = ?");
-        $stmt->bind_param("dddsd", $newQuantity, $newPrice, $pricePerUnit, $pricePerGML, $item);
+        $stmt = $conn->prepare("UPDATE $table SET $quantityColumn = ?, $priceColumn = ?, $pricePerColumn = ? WHERE $itemColumn = ?");
+        $pricePerItem = $newPrice / $newQuantity; // Calculate price per item for pastries
+        $stmt->bind_param("ddds", $newQuantity, $newPrice, $pricePerItem, $item);
     } else {
         // Item does not exist, insert a new one
-        if ($unitColumn) {
-            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $unitColumn, $priceColumn, $pricePerColumn, $pricePerGMLColumn) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssdss", $item, number_format($quantity, 2, '.', ''), $unit, $price, $pricePerUnit, $pricePerGML);
-        } else {
-            $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $priceColumn, $pricePerColumn, $pricePerGMLColumn) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssdsd", $item, number_format($quantity, 2, '.', ''), $price, $pricePerUnit, $pricePerGML);
-        }
+        $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $priceColumn, $pricePerColumn) VALUES (?, ?, ?, ?)");
+        $pricePerItem = $newPrice / $newQuantity; // Calculate price per item
+        $stmt->bind_param("sdid", $item, $quantity, $newPrice, $pricePerItem);
     }
 
     $stmt->execute();
@@ -52,13 +49,13 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
 
 // Handle saving ingredients
 if (isset($_POST['save_drinks'])) {
-    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], $_POST['unit'], $_POST['total_price'], 'drinks_ingredients', 'item', 'quantity', 'total_price', 'unit', 'price_per_unit', 'price_per_g_ml');
+    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], $_POST['unit'], $_POST['total_price'], 'drinks_ingredients', 'item', 'quantity', 'total_price', 'price_per_unit');
     header("Location: inventory.php");
     exit();
 }
 
 if (isset($_POST['save_pastries'])) {
-    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], null, $_POST['total_price'], 'pastries_ingredients', 'item', 'quantity', 'total_price', null, 'price_per_item');
+    saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], null, $_POST['total_price'], 'pastries_ingredients', 'item', 'quantity', 'total_price', 'price_per_item');
     header("Location: inventory.php");
     exit();
 }
@@ -82,11 +79,11 @@ if (isset($_POST['update'])) {
         $pricePerUnit = $total_price / $quantity; // Calculate price per unit
         $pricePerGML = $pricePerUnit / 1000; // Calculate price per gram/mL
         $stmt = $conn->prepare("UPDATE drinks_ingredients SET item = ?, quantity = ?, unit = ?, total_price = ?, price_per_unit = ?, price_per_g_ml = ? WHERE id = ?");
-        $stmt->bind_param("ssssddi", $item, number_format($quantity, 2, '.', ''), $unit, $total_price, $pricePerUnit, $pricePerGML, $id);
+        $stmt->bind_param("sdssddi", $item, number_format($quantity, 2, '.', ''), $unit, $total_price, $pricePerUnit, $pricePerGML, $id);
     } else {
         $pricePerItem = $total_price / $quantity; // Calculate price per item for pastries
         $stmt = $conn->prepare("UPDATE pastries_ingredients SET item = ?, quantity = ?, total_price = ?, price_per_item = ? WHERE id = ?");
-        $stmt->bind_param("ssdsi", $item, number_format($quantity, 2, '.', ''), $total_price, $pricePerItem, $id);
+        $stmt->bind_param("sdssi", $item, number_format($quantity, 2, '.', ''), $total_price, $pricePerItem, $id);
     }
 
     $stmt->execute();
