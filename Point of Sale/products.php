@@ -1,89 +1,24 @@
+<?php
+include "conn.php";
+
+// Fetch ingredients
+$drinks_result = $conn->query("SELECT * FROM drinks_ingredients");
+$pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
+
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-html {
-	scroll-behavior: smooth;
-}
-
-body {
-  font-family: "Lato", sans-serif;
-}
-
-.sidebar {
-  height: 100%;
-  width: 160px;
-  position: fixed;
-  z-index: 1;
-  top: 0;
-  left: 0;
-  background-color: #4b3021;
-  overflow-x: hidden;
-  padding-top: 16px;
-}
-
-.sidebar a {
-  padding: 6px 8px 6px 16px;
-  text-decoration: none;
-  font-size: 15px;
-  color: #dfdcdc;
-  display: block;
-}
-
-.sidebar a:hover {
-  font-size: 20px;
-  color: #f1f1f1;
-}
-
-.clicked {
-  color: #f1f1f1;
-}
-
-.main {
-  margin-top:50px;
-  margin-left: 180px; /* Same as the width of the sidenav */
-  padding: 0px 10px;
-}
-
-@media screen and (max-height: 450px) {
-  .sidebar {padding-top: 15px;}
-  .sidebar a {font-size: 18px;}
-}
-
-.button {
-  border: none;
-  color: white;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  padding-top: 2px;
-  transition-duration: 0.4s;
-  cursor: pointer;
-  width: 180px;
-  height: 30px;
-}
-
-.button1 {
-  background-color: #4b3021;
-  color: white;
-}
-
-.button1:hover {
-  background-color: white; 
-  color: black; 
-  border: 2px solid #4b3021;
-}
-
-  
-</style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
 
+<body>
   <div class="sidebar"><br>
     <a href="index.php"><i class="fa fa-home"></i>   Dashboard</a>
     <a href="inventory.php"><i class="fa fa-qrcode"></i>   Inventory</a>
@@ -112,14 +47,38 @@ body {
         <form>
           <label for="product" class="form-label">Product Name</label>
           <input type="text" class="form-control" id="product">
-          <label for="product" class="form-label">Category</label>
-          <select class="form-select" aria-label="Default select example">
-            <option value="1">Category 1</option>
-            <option value="2">Category 2</option>
-            <option value="3">Categpry 3</option>
+          <label for="category" class="form-label">Category</label>
+          <select class="form-select" aria-label="Default select example" id="category">
+            <option value="1">Hot Drink</option>
+            <option value="2">Cold Drink</option>
+            <option value="3">Pastry</option>
           </select>
-          <label for="price" class="form-label">Selling Price</label>
-          <input type="number" class="form-control" id="price">
+          <div id="ingredientContainer" class="form-row" style="margin-left:-5px; margin-right:-5px; margin-top:5px">
+            <div class="col"><input type="text" class="form-control" placeholder="Ingredient" required></div>
+            <div class="col"><input type="number" class="form-control" placeholder="Quantity" required></div>
+            <div class="col">
+                <select class="form-control" required>
+                    <option value="" disabled selected>Select a unit</option>
+                    <option value="g">g</option>
+                    <option value="mL">mL</option>
+                </select>
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary mt-3" id="addIngredient">Add Ingredient</button>
+        <div class="form-row mt-2">
+          <div class="col">
+              <label for="cost_price" class="form-label">Cost Price</label>
+              <input type="number" class="form-control" id="cost_price" readonly>
+          </div>
+          <div class="col">
+              <label for="selling_price" class="form-label">Selling Price</label>
+              <input type="number" class="form-control" id="selling_price">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="formFile" class="form-label">Product Image</label>
+          <input class="form-control" type="file" id="formFile">
+        </div>
         </form>
       </div>
 
@@ -138,15 +97,21 @@ body {
         <th scope="col">#</th>
         <th scope="col">Product Name</th>
         <th scope="col">Category</th>
+        <th scope="col">Ingredients</th>
+        <th scope="col">Image</th>
+        <th scope="col">Cost Price</th>
         <th scope="col">Selling Price</th>
         <th scope="col">Action</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <th scope="row">1</th>
+        <td>1</td>
         <td>Product 1</td>
         <td>Category 1</td>
+        <td>Ingredient</td>
+        <td>Img</td>
+        <td>Cost Price</td>
         <td>Selling Price</td>
         <td>
           <button type="button" class="btn btn-primary">Edit</button>
@@ -156,6 +121,30 @@ body {
     </tbody>
   </table>
 </div>
-     
+
+<script>
+    const ingredientContainer = document.getElementById('ingredientContainer');
+    document.getElementById('addIngredient').addEventListener('click', () => {
+        ingredientContainer.insertAdjacentHTML('beforeend', `
+              <div id="ingredientContainer" class="form-row"style="margin-left:0px; margin-right:0px; margin-top:5px">
+                <div class="col"><input type="text" class="form-control" placeholder="Ingredient" required></div>
+                <div class="col"><input type="number" class="form-control" placeholder="Quantity" required></div>
+                <div class="col">
+                    <select class="form-control" required>
+                        <option value="" disabled selected>Select a unit</option>
+                        <option value="g">g</option>
+                        <option value="mL">mL</option>
+                    </select>
+                </div>
+              </div>
+            `);
+    });
+
+    document.getElementById('ingredientForm').addEventListener('submit', e => {
+        e.preventDefault();
+        alert('Form submitted!');
+    });
+</script>
+
 </body>
 </html> 
