@@ -1,7 +1,7 @@
 <?php
 include "conn.php";
 
-// Function to convert quantities to kg or L
+// convert quantities to kg or L
 function convertToKgOrL($quantity, $unit) {
     $conversion = [
         'kg' => 1,
@@ -12,7 +12,7 @@ function convertToKgOrL($quantity, $unit) {
     return isset($conversion[$unit]) ? (float)$quantity * $conversion[$unit] : (float)$quantity;
 }
 
-// Function to save or update ingredient
+// save or update ingredient
 function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, $itemColumn, $quantityColumn, $priceColumn, $pricePerColumn) {
     $stmt = $conn->prepare("SELECT $quantityColumn, $priceColumn FROM $table WHERE $itemColumn = ?");
     $stmt->bind_param("s", $item);
@@ -21,23 +21,23 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
     $stmt->fetch();
     $stmt->close();
 
-    // Convert quantity to kg or L for drinks only
+    // convert quantity to kg or L for drinks only
     if ($unit) {
         $quantity = convertToKgOrL($quantity, $unit);
         $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
     }
 
-    // Calculate new quantity and price
+    // calculate new quantity and price
     $newQuantity = ($existingQuantity !== null) ? $existingQuantity + $quantity : $quantity;
     $newPrice = ($existingPrice !== null) ? $existingPrice + $price : $price;
 
     if ($existingQuantity !== null) {
-        // Item exists, update the quantity and price
+        // if item exists, update the quantity and price
         $stmt = $conn->prepare("UPDATE $table SET $quantityColumn = ?, $priceColumn = ?, $pricePerColumn = ? WHERE $itemColumn = ?");
         $pricePerItem = $newPrice / $newQuantity; // Calculate price per item for pastries
         $stmt->bind_param("ddds", $newQuantity, $newPrice, $pricePerItem, $item);
     } else {
-        // Item does not exist, insert a new one
+        // if item does not exist, insert a new one
         $stmt = $conn->prepare("INSERT INTO $table ($itemColumn, $quantityColumn, $priceColumn, $pricePerColumn) VALUES (?, ?, ?, ?)");
         $pricePerItem = $newPrice / $newQuantity; // Calculate price per item
         $stmt->bind_param("sdid", $item, $quantity, $newPrice, $pricePerItem);
@@ -47,7 +47,7 @@ function saveOrUpdateIngredient($conn, $item, $quantity, $unit, $price, $table, 
     $stmt->close();
 }
 
-// Handle saving ingredients
+// save ingredients
 if (isset($_POST['save_drinks'])) {
     saveOrUpdateIngredient($conn, $_POST['item'], $_POST['quantity'], $_POST['unit'], $_POST['total_price'], 'drinks_ingredients', 'item', 'quantity', 'total_price', 'price_per_unit');
     header("Location: inventory.php");
@@ -60,7 +60,7 @@ if (isset($_POST['save_pastries'])) {
     exit();
 }
 
-// Update ingredient
+// update ingredient
 if (isset($_POST['update'])) {
     $id = $_POST['id'];
     $item = $_POST['item'];
@@ -69,7 +69,7 @@ if (isset($_POST['update'])) {
     $unit = isset($_POST['unit']) ? $_POST['unit'] : null; // Only for drinks
     $type = $_POST['type'];
 
-    // Convert quantity to kg or L if applicable
+    // convert quantity to kg or L if applicable
     if ($unit) {
         $quantity = convertToKgOrL($quantity, $unit);
         $unit = ($unit === 'kg' || $unit === 'g') ? 'kg' : 'L';
@@ -93,7 +93,7 @@ if (isset($_POST['update'])) {
     exit();
 }
 
-// Delete ingredient
+// delete ingredient
 if (isset($_GET['id']) && isset($_GET['type'])) {
     $id = $_GET['id'];
     $type = $_GET['type'];
@@ -108,7 +108,7 @@ if (isset($_GET['id']) && isset($_GET['type'])) {
     exit();
 }
 
-// Fetch ingredients
+// fetch ingredients
 $drinks_result = $conn->query("SELECT * FROM drinks_ingredients");
 $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
 ?>
