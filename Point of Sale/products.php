@@ -1,11 +1,73 @@
 <?php
 include "conn.php";
 
-// Fetch ingredients
+// Fetch ingredients and their prices
 $drinks_result = $conn->query("SELECT * FROM drinks_ingredients");
-$pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
+$ingredients = [];
+while ($row = $drinks_result->fetch_assoc()) {
+    $ingredients[] = [
+        'item' => $row['item'],
+        'id' => $row['id'], // Include ingredient ID
+        'price_per_g_ml' => $row['price_per_g_ml']
+    ]; 
+}
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Retrieve product data
+    $productName = $_POST['product'];
+    $category = $_POST['category'];
+    $costPrice = $_POST['cost_price'];
+    $sellingPrice = $_POST['selling_price'];
+    $image = $_FILES['formFile']['name']; // Handle file upload if needed
+
+    // Move uploaded file to the desired directory
+    move_uploaded_file($_FILES['formFile']['tmp_name'], "uploads/" . $image); // Ensure 'uploads' directory exists
+
+    // Insert product into products table
+    $stmt = $conn->prepare("INSERT INTO products (product, category, image, cost_price, selling_price) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssidd", $productName, $category, $image, $costPrice, $sellingPrice);
+    
+    if ($stmt->execute()) {
+        $productId = $stmt->insert_id; // Get the last inserted product ID
+
+        // Insert ingredients into products_ingredients table
+        if (isset($_POST['ingredients'])) {
+            $ingredientsData = $_POST['ingredients'];
+
+            foreach ($ingredientsData as $ingredient) {
+                $ingredientName = $ingredient['ingredient'];
+                $quantity = $ingredient['quantity'];
+                $unit = $ingredient['unit'];
+
+                // Retrieve ingredient_id
+                foreach ($ingredients as $ing) {
+                    if ($ing['item'] === $ingredientName) {
+                        $ingredientId = $ing['id'];
+
+                        // Insert into products_ingredients table
+                        $ingredientInsertStmt = $conn->prepare("INSERT INTO products_ingredients (product_id, ingredient_id, ingredient, quantity, unit) VALUES (?, ?, ?, ?, ?)");
+                        $ingredientInsertStmt->bind_param("iisss", $productId, $ingredientId, $ingredientName, $quantity, $unit);
+                        $ingredientInsertStmt->execute();
+                        $ingredientInsertStmt->close();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Return a success response
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Error inserting product']);
+    }
+    
+    $stmt->close();
+    $conn->close();
+    exit;
+}
 ?>
+
+
 
 <!DOCTYPE html>
 <html>
@@ -44,27 +106,38 @@ $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
       </div>
 
       <div class="modal-body">
-        <form>
-          <label for="product" class="form-label">Product Name</label>
+      <form id="productForm" method="POST" action="save_product.php">
+        <label for="product" class="form-label">Product Name</label>
           <input type="text" class="form-control" id="product">
-          <label for="category" class="form-label">Category</label>
+          <label for="category" class="form-label">Category & Ingredients</label>
           <select class="form-select" aria-label="Default select example" id="category">
             <option value="1">Hot Drink</option>
             <option value="2">Cold Drink</option>
             <option value="3">Pastry</option>
           </select>
+
+          <!-- Ingredient Section -->
           <div id="ingredientContainer" class="form-row" style="margin-left:-5px; margin-right:-5px; margin-top:5px">
-            <div class="col"><input type="text" class="form-control" placeholder="Ingredient" required></div>
-            <div class="col"><input type="number" class="form-control" placeholder="Quantity" required></div>
             <div class="col">
-                <select class="form-control" required>
-                    <option value="" disabled selected>Select a unit</option>
+                <select class="form-select ingredient-name" required>
+                    <option value="" disabled selected>Ingredient</option>
+                    <?php foreach ($ingredients as $ingredient): ?>
+                        <option data-price="<?php echo $ingredient['price_per_g_ml']; ?>" value="<?php echo htmlspecialchars($ingredient['item']); ?>"><?php echo htmlspecialchars($ingredient['item']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col"><input type="number" class="form-control ingredient-quantity" placeholder="Quantity" required></div>
+            <div class="col">
+                <select class="form-control ingredient-unit" required>
+                    <option value="" disabled selected>Unit</option>
                     <option value="g">g</option>
                     <option value="mL">mL</option>
                 </select>
             </div>
         </div>
         <button type="button" class="btn btn-primary mt-3" id="addIngredient">Add Ingredient</button>
+        
+        <!-- Cost and Selling Prices -->
         <div class="form-row mt-2">
           <div class="col">
               <label for="cost_price" class="form-label">Cost Price</label>
@@ -75,9 +148,10 @@ $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
               <input type="number" class="form-control" id="selling_price">
           </div>
         </div>
+
         <div class="mb-3">
-          <label for="formFile" class="form-label">Product Image</label>
-          <input class="form-control" type="file" id="formFile">
+            <label for="formFile" class="form-label">Product Image</label>
+            <input class="form-control" type="file" id="formFile" name="formFile" required>
         </div>
         </form>
       </div>
@@ -124,27 +198,135 @@ $pastries_result = $conn->query("SELECT * FROM pastries_ingredients");
 
 <script>
     const ingredientContainer = document.getElementById('ingredientContainer');
+    let totalCostPrice = 0;
+    let ingredientCounter = 1; // Counter for ingredient fields
+
     document.getElementById('addIngredient').addEventListener('click', () => {
-        ingredientContainer.insertAdjacentHTML('beforeend', `
-              <div id="ingredientContainer" class="form-row"style="margin-left:0px; margin-right:0px; margin-top:5px">
-                <div class="col"><input type="text" class="form-control" placeholder="Ingredient" required></div>
-                <div class="col"><input type="number" class="form-control" placeholder="Quantity" required></div>
-                <div class="col">
-                    <select class="form-control" required>
-                        <option value="" disabled selected>Select a unit</option>
-                        <option value="g">g</option>
-                        <option value="mL">mL</option>
-                    </select>
+        // Get the current input values for the last ingredient added
+        const ingredientNameSelect = document.querySelector('.ingredient-name:last-of-type');
+        const ingredientQuantityInput = document.querySelector('.ingredient-quantity:last-of-type');
+        const ingredientUnitSelect = document.querySelector('.ingredient-unit:last-of-type');
+
+        // Check if an ingredient is selected and a quantity is provided
+        if (ingredientNameSelect.value && ingredientQuantityInput.value && ingredientUnitSelect.value) {
+            // Increment the counter for the next ingredient fields
+            ingredientCounter++;
+
+            // Add new ingredient row with incrementing names
+            ingredientContainer.insertAdjacentHTML('beforeend', `
+                <div class="form-row mt-2">
+                    <div class="col">
+                        <select class="form-select ingredient-name" name="ingredient${ingredientCounter}" required>
+                            <option value="" disabled selected>Select an ingredient</option>
+                            <?php foreach ($ingredients as $ingredient): ?>
+                                <option data-price="<?php echo $ingredient['price_per_g_ml']; ?>" value="<?php echo htmlspecialchars($ingredient['item']); ?>"><?php echo htmlspecialchars($ingredient['item']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col"><input type="number" class="form-control ingredient-quantity" name="quantity${ingredientCounter}" placeholder="Quantity" required></div>
+                    <div class="col">
+                        <select class="form-control ingredient-unit" name="unit${ingredientCounter}" required>
+                            <option value="" disabled selected>Select a unit</option>
+                            <option value="g">g</option>
+                            <option value="mL">mL</option>
+                        </select>
+                    </div>
                 </div>
-              </div>
             `);
+
+            // Calculate total cost price based on all ingredients
+            totalCostPrice = 0; // Reset total cost price
+            const ingredientNames = document.querySelectorAll('.ingredient-name');
+            const ingredientQuantities = document.querySelectorAll('.ingredient-quantity');
+
+            ingredientNames.forEach((select, index) => {
+                const quantity = parseFloat(ingredientQuantities[index].value);
+                if (select.value && quantity) {
+                    const selectedOption = select.options[select.selectedIndex];
+                    const ingredientPrice = parseFloat(selectedOption.getAttribute('data-price'));
+                    totalCostPrice += ingredientPrice * quantity;
+                }
+            });
+
+            // Update the total cost price field
+            document.getElementById('cost_price').value = totalCostPrice.toFixed(2);
+        } else {
+            alert('Please fill in all fields before adding an ingredient.');
+        }
+    });
+    document.querySelector('.btn-primary[data-bs-dismiss="modal"]').addEventListener('click', () => {
+    const formData = new FormData(document.getElementById('productForm'));
+
+    // Add ingredients to FormData
+    const ingredientNames = document.querySelectorAll('.ingredient-name');
+    const ingredientQuantities = document.querySelectorAll('.ingredient-quantity');
+    const ingredientUnits = document.querySelectorAll('.ingredient-unit');
+
+    ingredientNames.forEach((select, index) => {
+        if (select.value && ingredientQuantities[index].value && ingredientUnits[index].value) {
+            formData.append(`ingredients[${index}][ingredient]`, select.value);
+            formData.append(`ingredients[${index}][quantity]`, ingredientQuantities[index].value);
+            formData.append(`ingredients[${index}][unit]`, ingredientUnits[index].value);
+        }
     });
 
-    document.getElementById('ingredientForm').addEventListener('submit', e => {
-        e.preventDefault();
-        alert('Form submitted!');
+    // Submit the form data
+    fetch('save_product.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Handle success or error
+        if (data.success) {
+            alert('Product saved successfully!');
+            // Optionally, you can refresh the page or update the table
+        } else {
+            alert('Error saving product: ' + data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+document.querySelector('.btn-primary[data-bs-dismiss="modal"]').addEventListener('click', (event) => {
+    event.preventDefault(); // Prevent modal dismissal
+
+    const formData = new FormData(document.getElementById('productForm'));
+
+    // Add ingredients to FormData
+    const ingredientNames = document.querySelectorAll('.ingredient-name');
+    const ingredientQuantities = document.querySelectorAll('.ingredient-quantity');
+    const ingredientUnits = document.querySelectorAll('.ingredient-unit');
+
+    ingredientNames.forEach((select, index) => {
+        if (select.value && ingredientQuantities[index].value && ingredientUnits[index].value) {
+            formData.append(`ingredients[${index}][ingredient]`, select.value);
+            formData.append(`ingredients[${index}][quantity]`, ingredientQuantities[index].value);
+            formData.append(`ingredients[${index}][unit]`, ingredientUnits[index].value);
+        }
     });
+
+    // Submit the form data
+    fetch('save_product.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Handle success or error
+        if (data.success) {
+            alert('Product saved successfully!');
+            // Optionally close the modal or refresh the table
+            $('#myModal').modal('hide'); // Close modal on success
+        } else {
+            alert('Error saving product: ' + data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+
 </script>
 
+
 </body>
-</html> 
+</html>
