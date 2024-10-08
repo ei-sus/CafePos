@@ -14,7 +14,7 @@ CREATE TABLE `category` (
 -- Table structure for table `ingredients`
 CREATE TABLE `ingredients` (
  `ingredient_id` smallint(6) NOT NULL AUTO_INCREMENT,
- `ingredient_name` varchar(30) NOT NULL,
+ `ingredient_name` varchar(50) NOT NULL,
  `category_id` tinyint(4) NOT NULL,
  `quantity` float NOT NULL,
  `unit` varchar(5) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE `ingredients` (
  UNIQUE KEY `item` (`ingredient_name`),
  KEY `category_id` (`category_id`),
  CONSTRAINT `ingredients_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `category` (`category_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table structure for table `orders`
 CREATE TABLE `orders` (
@@ -59,7 +59,7 @@ CREATE TABLE `order_items` (
 -- Table structure for table `products`
 CREATE TABLE `products` (
  `product_id` smallint(6) NOT NULL AUTO_INCREMENT,
- `product_name` varchar(30) NOT NULL,
+ `product_name` varchar(50) NOT NULL,
  `category_id` tinyint(4) NOT NULL,
  `product_image` blob NOT NULL,
  `cost_price` float NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE `products` (
  PRIMARY KEY (`product_id`),
  KEY `category_id` (`category_id`),
  CONSTRAINT `products_ibfk_1` FOREIGN KEY (`category_id`) REFERENCES `category` (`category_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table structure for table `product_ingredients`
 CREATE TABLE `product_ingredients` (
