@@ -1,0 +1,117 @@
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: "Lato", sans-serif;
+}
+
+/* Sidebar styles with logos/icons and smaller text */
+.sidebar {
+    height: 100%;
+    width: 250px; /* Default width when expanded */
+    background-color: #634832;
+    position: fixed;
+    top: 60px; /* Adjusted for the top bar */
+    left: 0;
+    overflow-x: hidden;
+    transition: width 0.3s ease;
+    padding-top: 20px;
+}
+
+.sidebar.collapsed {
+    width: 60px; /* Narrow bar when collapsed */
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    color: white;
+    padding: 10px;
+    background-color: #634832;
+    border-bottom: 1px solid #85604a;
+    transition: 0.3s ease;
+}
+
+.hamburger-menu {
+    font-size: 20px; /* Adjusted for smaller icon size */
+    cursor: pointer;
+    color: white;
+    margin-right: 10px;
+}
+
+#sidebarTitle {
+    font-size: 1rem; /* Smaller title font size for a cleaner look */
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar.collapsed #sidebarTitle {
+    display: none; /* Hide title when sidebar is collapsed */
+}
+
+.sidebar.collapsed .hamburger-menu {
+    margin-right: 0;
+    margin-left: 15px;
+}
+
+.sidebar a {
+    padding: 10px 15px;
+    text-decoration: none;
+    font-size: 14px; /* Smaller text for sidebar */
+    color: white;
+    display: flex; /* Align icon and text side by side */
+    align-items: center;
+    transition: 0.3s ease;
+}
+
+.sidebar a i {
+    font-size: 18px;
+    margin-right: 10px;
+}
+
+.sidebar.collapsed a {
+    display: none;
+}
+
+.sidebar a:hover {
+    background-color: #85604a;
+}
+
+.main {
+    margin-left: 250px; /* Default margin when sidebar is expanded */
+    margin-top: 60px;
+    transition: margin-left 0.3s ease;
+    padding: 20px;
+}
+
+.sidebar.collapsed + .main {
+    margin-left: 60px; /* Smaller margin when sidebar is collapsed */
+}
+
+/* Additional button styles */
+.button {
+    border: none;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    padding-top: 2px;
+    transition-duration: 0.4s;
+    cursor: pointer;
+    width: 260px;
+    height: 30px;
+}
+
+.button1 {
+    background-color: #4b3021;
+    color: white;
+}
+
+.button1:hover {
+    background-color: white;
+    color: black;
+    border: 2px solid #4b3021;
+}
